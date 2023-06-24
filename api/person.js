@@ -67,3 +67,48 @@ const personInfo = (name, surname, age) => {
     updatedAt: timestamp,
   };
 };
+
+module.exports.details = (event, context, callback) => {
+  const { name, surname } = event.queryStringParameters || {};
+
+  let params = {
+    TableName: process.env.PERSON_TABLE,
+  };
+
+  if (name || surname) {
+    params.FilterExpression = '';
+    params.ExpressionAttributeNames = {};
+    params.ExpressionAttributeValues = {};
+
+    if (name) {
+      params.FilterExpression += '#name = :name';
+      params.ExpressionAttributeNames['#name'] = 'name';
+      params.ExpressionAttributeValues[':name'] = name;
+    }
+
+    if (surname) {
+      if (params.FilterExpression !== '') {
+        params.FilterExpression += ' AND ';
+      }
+      params.FilterExpression += '#surname = :surname';
+      params.ExpressionAttributeNames['#surname'] = 'surname';
+      params.ExpressionAttributeValues[':surname'] = surname;
+    }
+  }
+
+  dynamoDb
+    .scan(params)
+    .promise()
+    .then((result) => {
+      const persons = result.Items;
+      const response = {
+        statusCode: 200,
+        body: JSON.stringify({ persons: persons }),
+      };
+      callback(null, response);
+    })
+    .catch((error) => {
+      console.error(error);
+      callback(new Error("Couldn't fetch persons."));
+    });
+};
